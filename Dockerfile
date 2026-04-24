@@ -1,15 +1,32 @@
-FROM node:18
+# -------- Stage 1: Build --------
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json ./
+# Copy dependency files
+COPY package*.json ./
+
+# Install dependencies
 RUN npm install
 
+# Copy source code
 COPY . .
 
-EXPOSE 3000
+# Build React app
+RUN npm run build
 
-# Important for Docker
-ENV HOST=0.0.0.0
 
-CMD ["npm", "start"]
+# -------- Stage 2: Production --------
+FROM nginx:alpine
+
+# Remove default nginx static files
+RUN rm -rf /usr/share/nginx/html/*
+
+# Copy build output from builder stage
+COPY --from=builder /app/build /usr/share/nginx/html
+
+# Expose port
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
