@@ -1,32 +1,28 @@
-# -------- Stage 1: Build --------
-FROM node:18-alpine AS builder
+# -------- Stage 1: Install dependencies --------
+FROM node:18-alpine AS deps
 
 WORKDIR /app
 
-# Copy dependency files
 COPY package*.json ./
 
-# Install dependencies
+# Install all deps (including dev for safety)
 RUN npm install
 
-# Copy source code
+
+# -------- Stage 2: Production image --------
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy only necessary files from deps stage
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build React app
-RUN npm run build
+# Remove dev dependencies to reduce size
+RUN npm prune --production
 
+EXPOSE 3000
 
-# -------- Stage 2: Production --------
-FROM nginx:alpine
+ENV HOST=0.0.0.0
 
-# Remove default nginx static files
-RUN rm -rf /usr/share/nginx/html/*
-
-# Copy build output from builder stage
-COPY --from=builder /app/build /usr/share/nginx/html
-
-# Expose port
-EXPOSE 80
-
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npm", "start"]
